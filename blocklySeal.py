@@ -170,7 +170,7 @@ include ${MOSROOT}/mos/make/Makefile
 
 if __name__ == '__main__':
     abs_path = os.path.abspath('.') #Absolute path of current working directory
-    filename = os.path.join(abs_path, 'blockly-read-only/demos/maze/index.html')
+    filename = os.path.join(abs_path, 'blockly/demos/maze/index.html')
     print 'Try to open ' + filename
     webbrowser.open(filename)
 
