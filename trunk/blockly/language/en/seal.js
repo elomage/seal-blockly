@@ -32,6 +32,9 @@ if (!Blockly.Language) {
 var Seal = {};
 Seal.block_color = 15
 
+Blockly.Seal = Blockly.Generator.get('Seal');
+Blockly.Javascript = Blockly.Generator.get('Javascript');
+
 // SEAL: use <id> <param_list> ;
 //-------------------------------------
 Blockly.Language.seal_use = {
@@ -46,22 +49,28 @@ Blockly.Language.seal_use = {
     var dropdown = new Blockly.FieldDropdown(function() {
       return Blockly.Language.seal_use.RESOURCES;
     });
-    this.appendInput(dropdown, Blockly.INPUT_VALUE, 'R');
+    this.appendTitle(dropdown, 'USE');
+    this.appendInput('', Blockly.INPUT_VALUE, 'ARGS');
        
     this.setTooltip(function() {
-      var mode = thisBlock.getInputLabelValue('R');
+      var mode = thisBlock.getInputLabelValue('USE');
       return Blockly.Language.seal_use.TOOLTIPS[mode];
     });
    
-    //this.setTooltip('Use or enable a resource.');
+    this.setTooltip('Use or enable a resource.');
   }
+};
+Blockly.Seal.seal_use = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return 'Use ' + this.getTitleValue('USE') + Blockly.Seal.valueToCode(this, 'ARGS')+ ';\n';
 };
 
 Blockly.Language.seal_use.RESOURCES =
-    [['RedLed', 'REDLED'],
-     ['GreenLed', 'GREENLED'],
-     ['BlueLed', 'BLUELED'],
-     ['Led', 'LED']];
+    [['RedLed', 'RedLed'],
+     ['GreenLed', 'GreenLed'],
+     ['BlueLed', 'BlueLed'],
+     ['Led', 'Led']];
 
 Blockly.Language.seal_use.TOOLTIPS ={
   REDLED: 'Use the red LED.',
@@ -85,17 +94,24 @@ Blockly.Language.seal_read = {
     var dropdown = new Blockly.FieldDropdown(function() {
       return Blockly.Language.seal_read.RESOURCES;
     });
-    this.appendInput(dropdown, Blockly.INPUT_VALUE, 'R');
+    this.appendTitle(dropdown, 'READ');
+    this.appendInput('', Blockly.INPUT_VALUE, 'ARGS');
     
     this.setTooltip('Read a resource.');
   }
 };
 
+Blockly.Seal.seal_read = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return 'Read ' + this.getTitleValue('READ') + Blockly.Seal.valueToCode(this, 'ARGS')+ ';\n';
+};
+
 Blockly.Language.seal_read.RESOURCES =
     [['ADC', 'ADC'],
-     ['Light', 'LIGHT'],
-     ['Humidity', 'HUMIDITY'],
-     ['Temperature', 'TEMPERATURE']];
+     ['Light', 'Light'],
+     ['Humidity', 'Humidity'],
+     ['Temperature', 'Temperature']];
 
 
 // SEAL: output <id> <param_list> ;
@@ -112,15 +128,23 @@ Blockly.Language.seal_output = {
     var dropdown = new Blockly.FieldDropdown(function() {
       return Blockly.Language.seal_output.RESOURCES;
     });
-    this.appendInput(dropdown, Blockly.INPUT_VALUE, 'R');
+    this.appendTitle(dropdown, 'OUTPUT');
+    this.appendInput('', Blockly.INPUT_VALUE, 'ARGS');
 
     this.setTooltip('Output.');
   }
 };
 
+Blockly.Seal.seal_output = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return 'Use ' + this.getTitleValue('OUTPUT') + Blockly.Seal.valueToCode(this, 'ARGS')+ ';\n';
+};
+
+
 Blockly.Language.seal_output.RESOURCES =
-    [['Radio', 'RADIO'],
-     ['Serial', 'SERIAL']];
+    [['Radio', 'Radio'],
+     ['Serial', 'Serial']];
 
 
 // SEAL: output <id> <param_list> ;
@@ -133,11 +157,16 @@ Blockly.Language.seal_touple2 = {
     this.appendTitle('');
 	this.setOutput(true);
     this.setInputsInline(true);
-    this.appendInput('', Blockly.INPUT_VALUE, 'A');
-    this.appendInput(',', Blockly.INPUT_VALUE, 'B');
+    this.appendInput('', Blockly.INPUT_VALUE, 'ARG1');
+    this.appendInput(',', Blockly.INPUT_VALUE, 'ARG2');
   }
 };
 
+Blockly.Seal.seal_touple2 = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return Blockly.Seal.valueToCode(this, 'ARG1') + Blockly.Seal.valueToCode(this, 'ARG2');
+};
 
 
 //-------------------------------------
@@ -149,18 +178,29 @@ Blockly.Language.seal_period = {
     this.appendTitle('period');
 	this.setOutput(true);
 
-    this.appendInput('', Blockly.INPUT_VALUE, 'INT');
+    //this.appendInput('', Blockly.INPUT_VALUE, 'INT');
 
     var dropdown = new Blockly.FieldDropdown(function() {
       return Blockly.Language.seal_period.TIME;
     });
+    var value = new Blockly.FieldTextInput('1000', function(text) {
+      var n = window.parseFloat(text || 0);
+      return window.isNaN(n) ? null : String(n);
+    })
+    this.appendTitle(value, 'NUM');
     this.appendTitle(dropdown, 'TEXT');
   }
 };
 
+Blockly.Seal.seal_period = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return ', period ' + this.getTitleValue('NUM').toLowerCase() + this.getTitleValue('TEXT');
+};
+
 Blockly.Language.seal_period.TIME =
-    [['ms', 'MS'],
-     ['s', 'SEC']];
+    [['ms', 'ms'],
+     ['s', 's']];
 
 
 //-------------------------------------
@@ -175,19 +215,26 @@ Blockly.Language.seal_baudrate = {
     var dropdown = new Blockly.FieldDropdown(function() {
       return Blockly.Language.seal_baudrate.BAUD;
     });
-    dropdown.setValue('B9600');
+    dropdown.setValue('9600');
     this.appendTitle(dropdown, 'TEXT');
   }
 };
 
+
+Blockly.Seal.seal_baudrate = function() {
+  // Generate JavaScript for moving forward or backwards.
+
+  return ', baudrate ' + this.getTitleValue('TEXT').toLowerCase();
+};
+
 Blockly.Language.seal_baudrate.BAUD =
-    [['2400', 'B2400'],
-     ['4800', 'B4800'],
-     ['9600', 'B9600'],
-     ['19200', 'B19200'],
-     ['38400', 'B38400'],
-     ['57600', 'B57600'],
-     ['115200', 'B115200']];
+    [['2400', '2400'],
+     ['4800', '4800'],
+     ['9600', '9600'],
+     ['19200', '19200'],
+     ['38400', '38400'],
+     ['57600', '57600'],
+     ['115200', '115200']];
 
 
 //-------------------------------------

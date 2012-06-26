@@ -1,7 +1,11 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Blocky Playground</title>
+<title>Seal - Blocky Playground</title>
+
+  <script type="text/javascript" src="mootools-core-1.4.5-full-nocompat.js"></script>
+  <script type="text/javascript" src="mootools-more-1.4.0.1.js"></script>
+  
 <script type="text/javascript" src="../blockly.js"></script>
 <script type="text/javascript" src="../block.js"></script>
 <script type="text/javascript" src="../block_svg.js"></script>
@@ -15,41 +19,13 @@
 <script type="text/javascript" src="../flyout.js"></script>
 <script type="text/javascript" src="../generator.js"></script>
 <script type="text/javascript" src="../inject.js"></script>
-<script type="text/javascript" src="../generators/dart.js"></script>
-<script type="text/javascript" src="../generators/dart/control.js"></script>
-<script type="text/javascript" src="../generators/dart/text.js"></script>
-<script type="text/javascript" src="../generators/dart/math.js"></script>
-<script type="text/javascript" src="../generators/dart/logic.js"></script>
-<script type="text/javascript" src="../generators/dart/lists.js"></script>
-<script type="text/javascript" src="../generators/dart/variables.js"></script>
-<script type="text/javascript" src="../generators/dart/procedures.js"></script>
-<script type="text/javascript" src="../generators/javascript.js"></script>
-<script type="text/javascript" src="../generators/javascript/control.js"></script>
-<script type="text/javascript" src="../generators/javascript/text.js"></script>
-<script type="text/javascript" src="../generators/javascript/math.js"></script>
-<script type="text/javascript" src="../generators/javascript/logic.js"></script>
-<script type="text/javascript" src="../generators/javascript/lists.js"></script>
-<script type="text/javascript" src="../generators/javascript/variables.js"></script>
+
 <script type="text/javascript" src="../generators/seal.js"></script>
-<script type="text/javascript" src="../generators/python.js"></script>
-<script type="text/javascript" src="../generators/python/control.js"></script>
-<script type="text/javascript" src="../generators/python/text.js"></script>
-<script type="text/javascript" src="../generators/python/math.js"></script>
-<script type="text/javascript" src="../generators/python/logic.js"></script>
-<script type="text/javascript" src="../generators/python/lists.js"></script>
-<script type="text/javascript" src="../generators/python/variables.js"></script>
-<script type="text/javascript" src="../generators/python/procedures.js"></script>
+
 <script type="text/javascript" src="../language/en/_messages.js"></script>
 
 <script type="text/javascript" src="../language/en/seal.js"></script>
 
-<script type="text/javascript" src="../language/en/control.js"></script>
-<script type="text/javascript" src="../language/en/text.js"></script>
-<script type="text/javascript" src="../language/en/math.js"></script>
-<script type="text/javascript" src="../language/en/logic.js"></script>
-<script type="text/javascript" src="../language/en/lists.js"></script>
-<script type="text/javascript" src="../language/en/variables.js"></script>
-<script type="text/javascript" src="../language/en/procedures.js"></script>
 <script type="text/javascript" src="../mutator.js"></script>
 <script type="text/javascript" src="../names.js"></script>
 <script type="text/javascript" src="../procedures.js"></script>
@@ -67,15 +43,6 @@ var block = null;
 
 function start() {
   Blockly.inject(document.getElementById('svg'), {'rtl': rtl, path: '../'});
-}
-
-function createCustomBlock() {
-  block = new Blockly.Block(Blockly.mainWorkspace, '');
-  block.initSvg();
-  block.getSvgRoot().setAttribute('transform', 'translate(60, 40)');
-  block.render();
-  document.getElementById('blockFactoryForm').reset();
-  document.getElementById('customTbody').style.display = 'table-row-group';
 }
 
 function setColour() {
@@ -155,43 +122,79 @@ function fromXml() {
   Blockly.Xml.domToWorkspace(Blockly.mainWorkspace, xml);
 }
 
-function toJavaScript() {
-  var output = document.getElementById('importExport');
-  output.value = Blockly.Generator.workspaceToCode('JavaScript');
-}
-
-function toDart() {
-  var output = document.getElementById('importExport');
-  output.value = Blockly.Generator.workspaceToCode('Dart');
-}
-
-function toPython() {
-  var output = document.getElementById('importExport');
-  output.value = Blockly.Generator.workspaceToCode('Python');
-}
-
 function toSeal() {
   var output = document.getElementById('importExport');
   output.value = Blockly.Generator.workspaceToCode('Seal');
 }
 
-function airstrike(n) {
-  var prototypes = [];
-  for (var prototype in Blockly.Language) {
-    if (Blockly.Language[prototype].category) {
-      prototypes.push(prototype);
-    }
-  }
-  for (var x = 0; x < n; x++) {
-    var prototype = prototypes[Math.floor(Math.random() * prototypes.length)];
-    var block = new Blockly.Block(Blockly.mainWorkspace, prototype);
-    block.initSvg();
-    block.getSvgRoot().setAttribute('transform', 'translate(' +
-        Math.round(Math.random() * 450 + 40) + ', ' +
-        Math.round(Math.random() * 600 + 40) + ')');
-    block.render();
-  }
+// Communication magic!!
+
+var script_path = 'http://localhost:8090';
+
+var successful = 1;
+
+var send_sync = new Request.JSONP({
+// Raises problems with and('&&'), since it's delimiter, temp fix on Python side
+url: script_path + '?sync=True',
+callbackKey: 'jsoncallback',
+onRequest: function(url){
+    // a script tag is created with a src attribute equal to url
+	//alert(url);
+},
+onComplete: function(data){
+   // the request was completed.
+   //console.log(data);
+   //alert(data);
+   successful = 1;
+},
+onFailure: function(data){
+   // the request was completed.
+   //console.log(data);
+   alert("Failed");
+},
+onError: function(text, error){
+alert(text+ error);
 }
+});
+function doSync(){
+    // This check is needed becaue of alert, it stops background processes from 
+    // firing, so sync can fail to bo sent in time and python terminates...
+    if (successful == 0){
+        alert("Connection lost\n Please restart application.");
+        return 0;
+    }
+    successful = 0;
+    sync = setTimeout("doSync()",5000);
+    send_sync.send();
+}
+
+sync = setTimeout("doSync()",5000);
+
+
+function uploadSealCode() {
+  var code = Blockly.Generator.workspaceToCode('Seal');
+ 
+  // Strip out serial numbers.
+  code = code.replace(/"[a-z][-:\.\w]+"/g, '');
+
+  
+  var send_code = new Request.JSONP({
+    // Raises problems with and('&&'), since it's delimiter, temp fix on Python side
+    url: script_path + '?code='+code,
+	callbackKey: 'jsoncallback',
+    onRequest: function(url){
+        // a script tag is created with a src attribute equal to url
+		//alert(url);
+    },
+    onComplete: function(data){
+       // the request was completed.
+	   //console.log(data);
+	   //alert(data);
+    }
+   });
+   send_code.send();
+}
+
 </script>
 
 <style>
@@ -217,29 +220,13 @@ h1 {
 
 <div id="svg"></div>
 
-<h1>Blocky Playground</h1>
-
-<p><a href="javascript:void(document.getElementById('svg').style.display = 'block')">Show</a> - <a href="javascript:void(document.getElementById('svg').style.display = 'none')">Hide</a></p>
-
-<script type="text/javascript">
-  if (rtl) {
-    document.write('[ &larr; RTL. Switch to <A HREF="?ltr">LTR</A>. ]');
-  } else {
-    document.write('[ &rarr; LTR. Switch to <A HREF="?rtl">RTL</A>. ]');
-  }
-</script>
+<h1>Seal - Blocky Playground</h1>
 
 <p>
   <input type="button" value="Export to XML" onclick="toXml()">
   &nbsp;
   <input type="button" value="Import from XML" onclick="fromXml()">
   <br>
-  <input type="button" value="Generate JavaScript" onclick="toJavaScript()">
-  &nbsp;
-  <input type="button" value="Generate Dart" onclick="toDart()">
-  &nbsp;
-  <input type="button" value="Generate Python" onclick="toPython()"> 
-  &nbsp;
   <input type="button" value="Generate SEAL" onclick="toSeal()">
   <br>
   <textarea id="importExport" style="width: 26%; height: 12em"></textarea>
@@ -251,8 +238,8 @@ h1 {
 <table>
   <thead>
     <tr>
-      <td colspan=2>Stress the renderer with a
-        <input type="button" onclick="createCustomBlock()" value="Custom Block">
+      <td colspan=2>Try your app:
+        <input type="button" onclick="uploadSealCode()" value="Upload SEAL code">
       </td>
     </tr>
   </thead>
@@ -306,9 +293,6 @@ h1 {
 </table>
 <hr>
 
-<p>
-  Stress test with an <input type="button" value="Airstrike!" onclick="airstrike(100)">
-</p>
 
 </form>
 
