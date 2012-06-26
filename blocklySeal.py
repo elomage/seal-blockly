@@ -196,7 +196,7 @@ if __name__ == '__main__':
                 webbrowser.open(filename)
             else:
                 print ("Failed to open {}:{}, port might be in use.".format(host, port))
-            lastSync = time.time()
+            lastSync = time.time() + 30
             while p1.is_alive():
                 if con1.poll(0.1):
                     con1.recv()
