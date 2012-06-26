@@ -27,77 +27,79 @@ import os
 from os import path
 from subprocess import Popen
 from multiprocessing import Pipe, Process
-import urllib2
+from urllib2 import urlopen
 import socket
 import time
 import webbrowser
 
 pathToMansos = "../mansos"
+port = 8090
+host = 'localhost'
 
-def listen(pipe):
-    DEBUG = False
+def listen(pipe, debug = False):
+    try:
+        c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        c.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    c.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        c.bind((host, port))
+        c.listen(1)
+        print ("Listening to {}:{}".format(host, port))
+        while 1:
+            csock, caddr = c.accept()
+            start = time.time()
+            line = csock.recv(1024).strip()
+            new = line.decode().replace("&&", "##")
 
-    port = 8080
-    host = 'localhost'
-    c.bind((host, port))
-    c.listen(1)
-    print ("Listening to {}:{}".format(host, port))
-    while 1:
-        csock, caddr = c.accept()
-        start = time.time()
-        line = csock.recv(1024).strip()
-        new = line.decode().replace("&&", "##")
+            if new.strip() == '':
+                continue
 
-        if new.strip() == '':
-            continue
+            getStr = new[new.find(" /?") + 3:new.find("HTTP")]
+            assert len(getStr), "not found in {}".format(new)
 
-        getStr = new[new.find(" /?") + 3:new.find("HTTP")]
-        assert len(getStr), "not found in {}".format(new)
+            # Parse GET
+            get = dict()
+            for x in getStr.split("&"):
+                # TODO: fix possible errors on ?cmd&key or ?cmd=1=2&key=0
+                k, v = x.split("=")
+                get[k.strip()] = v.strip().replace("%20", " ").replace("{", "{\n").replace("}", "}\n").replace(";", ";\n").replace("##", "&&")
+            if "sync" in get:
+                pipe.send("Sync recieved")
+            else:
+                print (get['code'])
+                upload(code = get['code'], platform = "telosb")
+            if debug:
+                print ("Incoming conection, parameters: {}".format(get))
 
-        # Parse GET
-        get = dict()
-        for x in getStr.split("&"):
-            # TODO: fix possible errors on ?cmd&key or ?cmd=1=2&key=0
-            k, v = x.split("=")
-            get[k.strip()] = v.strip().replace("%20", " ").replace("{", "{\n").replace("}", "}\n").replace(";", ";\n").replace("##", "&&")
-        if "sync" in get:
-            pipe.send("Sync recieved")
-        else:
-            print get['code']
-            get['code']
-            upload(code = "use RedLed, period 100ms;", platform = "telosb")
-        if DEBUG:
-            print ("Incoming conection, parameters: {}".format(get))
+            # Manage JSON callback
+            cb = None
+            if 'jsoncallback' in get:
+                cb = get['jsoncallback']
 
-        # Manage JSON callback
-        cb = None
-        if 'jsoncallback' in get:
-            cb = get['jsoncallback']
+            # Do magic
+            response = 'Hello!'
+            # Prepare data for response
+            data = "{}{}('{}')".format('HTTP/1.0 200 OK\n\n', cb, response)
 
-        # Do magic
-        response = 'Hello!'
-        # Prepare data for response
-        data = "{}{}('{}')".format('HTTP/1.0 200 OK\n\n', cb, response)
+            # Respond
+            csock.sendall(data.encode())
 
-        # Respond
-        csock.sendall(data.encode())
-
-        csock.close()
-        if DEBUG:
-            print ("Processed in {}".format(time.time() - start))
-        #getFile("file:///home/jj/work/blockly-read-only/demos/code/index.html")
+            csock.close()
+            if debug:
+                print ("Processed in {}".format(time.time() - start))
+            #getFile("file:///home/jj/work/blockly-read-only/demos/code/index.html")
+    except KeyboardInterrupt:
+        pass
+    except:
+        print ("Socket listening thread exception occurred, terminating...")
 
 def getFile(url, displayStatus = True):
     file_name = url.split('/')[-1]
-    u = urllib2.urlopen(url)
+    u = urlopen(url)
     f = open(file_name, 'wb')
     meta = u.info()
     file_size = int(meta.getheaders("Content-Length")[0])
-    print "Downloading: %s Bytes: %s" % (file_name, file_size)
+    print ("Downloading: %s Bytes: %s" % (file_name, file_size))
 
     file_size_dl = 0
     block_sz = 8192
@@ -111,17 +113,19 @@ def getFile(url, displayStatus = True):
         if displayStatus:
             status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
             status = status + chr(8) * (len(status) + 1)
-            print status,
+            print (status,)
 
     f.close()
 
 def doPopen(target):
+    clean = Popen(["make", "clean"])
+    clean.wait()
     upload = Popen(target)
     upload.wait()
     if upload.returncode != 0:
-        print "Upload failed!"
+        print ("Upload failed!")
         return
-    print "Upload successful!"
+    print ("Upload successful!")
 
 def upload(code, filename = "temp.sl", platform = "telosb"):
     with open(filename, "w") as codeFile:
@@ -140,7 +144,7 @@ def generateMakefile(fileName = 'main.c', appName = 'blocky-SEAL-test'):
         sourceType = "SEAL_SOURCES"
         if appName == '': appName = 'SealApp'
 
-        print "Generating Makefile"
+        print ("Generating Makefile")
         with open("Makefile", "w") as out:
             out.write("""#-*-Makefile-*- vim:syntax=make
 #
@@ -169,22 +173,39 @@ include ${MOSROOT}/mos/make/Makefile
 """)
 
 if __name__ == '__main__':
-    abs_path = os.path.abspath('.') #Absolute path of current working directory
-    filename = os.path.join(abs_path, 'blockly/demos/maze/index.html')
-    print 'Try to open ' + filename
-    webbrowser.open(filename)
+    try:
+        versionFile = os.path.join(pathToMansos, "doc/VERSION")
+        if not os.path.exists(pathToMansos) or not os.path.isfile(versionFile):
+            print ("MansOS not found in '{}', please edit this file in line 35".format(pathToMansos))
+        else:
+            f = open(versionFile, "r")
+            version = f.readline()
+            print ("MansOS version: {}".format(version))
+            abs_path = os.path.abspath('.') #Absolute path of current working directory
+            filename = os.path.join(abs_path, 'blockly/seal/playground-seal.html')
 
-    con1, con2 = Pipe()
-    p1 = Process(target = listen, args = (con2,))
-    p1.daemon = False
-    p1.name = "Socket listening thread"
-    p1.start()
-    lastSync = time.time()
-    while p1.is_alive():
-        if con1.poll(0.001):
-            print con1.recv()
+            con1, con2 = Pipe()
+            p1 = Process(target = listen, args = (con2,))
+            p1.daemon = False
+            p1.name = "Socket listening thread"
+            p1.start()
+            time.sleep(0.1)
+
+            if p1.is_alive():
+                print ('Try to open "{}"'.format(filename))
+                webbrowser.open(filename)
+            else:
+                print ("Failed to open {}:{}, port might be in use.".format(host, port))
             lastSync = time.time()
-        if time.time() - lastSync > 10:
-            print "No sync for 10 sec.\nTerminating..."
-            p1.terminate()
-            break
+            while p1.is_alive():
+                if con1.poll(0.1):
+                    con1.recv()
+                    lastSync = time.time()
+                if time.time() - lastSync > 10:
+                    print ("No sync for 10 sec.\nTerminating...")
+                    p1.terminate()
+                    break
+    except KeyboardInterrupt:
+        print ("Closing on request")
+    except:
+        print ("Exception occurred, terminating...")
