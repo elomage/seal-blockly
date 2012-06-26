@@ -1,0 +1,7 @@
+Run blocklySeal.py, if Your browser opens, everything is ok!
+
+If not follow instructions from blocklySeal.py.
+
+Python version neccessary: 2.7
+
+Note: You may need to change path to MansOS in blocklySeal.py line 35.
