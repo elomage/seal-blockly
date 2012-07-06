@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2008-2012 the MansOS team. All rights reserved.
@@ -182,7 +182,7 @@ if __name__ == '__main__':
             version = f.readline()
             print ("MansOS version: {}".format(version))
             abs_path = os.path.abspath('.') #Absolute path of current working directory
-            filename = os.path.join(abs_path, 'blockly/seal/playground-seal.html')
+            filename = "file://"+os.path.join(abs_path, 'blockly/seal/playground-seal.html')
 
             con1, con2 = Pipe()
             p1 = Process(target = listen, args = (con2,))
