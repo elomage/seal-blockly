@@ -20,9 +20,8 @@
 /**
  * @fileoverview Helper functions for generating Dart for blocks.
  * @author fraser@google.com (Neil Fraser)
- * Due to the frequency of long strings, the 80-column wrap rule need not apply
- * to language files.
  */
+'use strict';
 
 Blockly.Dart = Blockly.Generator.get('Dart');
 
@@ -33,12 +32,37 @@ Blockly.Dart = Blockly.Generator.get('Dart');
  * accidentally clobbering a built-in object or function.
  * @private
  */
-Blockly.Dart.RESERVED_WORDS_ =
+if (!Blockly.Dart.RESERVED_WORDS_) {
+  Blockly.Dart.RESERVED_WORDS_ = '';
+}
+
+Blockly.Dart.RESERVED_WORDS_ +=
     // http://www.dartlang.org/docs/spec/latest/dart-language-specification.pdf
-    // Section 14.1.1
-    'break,case,catch,class,const,continue,default,do,else,extends,false,final,finally,for,if,in,is,new,null,return,super,switch,this,throw,true,try,var,void,while,' +
+    // Section 15.1.1
+    'assert,break,case,catch,class,const,continue,default,do,else,extends,false,final,finally,for,if,in,is,new,null,return,super,switch,this,throw,true,try,var,void,while,' +
     // http://api.dartlang.org/dart_core.html
-    'AssertionError,bool,Clock,Collection,Comparable,Completer,Date,double,Duration,Dynamic,Expect,FallThroughError,Function,Future,Futures,Hashable,HashMap,HashSet,int,Iterable,Iterator,LinkedHashMap,List,Map,Match,Math,num,Object,Options,Pattern,Queue,RegExp,Set,Stopwatch,String,StringBuffer,Strings,TimeZone,TypeError,BadNumberFormatException,ClosureArgumentMismatchException,EmptyQueueException,Exception,ExpectException,FutureAlreadyCompleteException,FutureNotCompleteException,IllegalAccessException,IllegalArgumentException,IllegalJSRegExpException,IndexOutOfRangeException,IntegerDivisionByZeroException,NoMoreElementsException,NoSuchMethodException,NotImplementedException,NullPointerException,ObjectNotClosureException,OutOfMemoryException,StackOverflowException,UnsupportedOperationException,WrongArgumentCountException';
+    'AbstractClassInstantiationError,ArgumentError,AssertionError,bool,CastError,Collection,Comparable,Completer,Date,double,Duration,Error,Expando,Expect,FallThroughError,Function,Future,Futures,Hashable,HashSet,int,Iterable,Iterator,Match,NoSuchMethodError,num,Object,Options,Pattern,Queue,RuntimeError,Set,Stopwatch,StringBuffer,Strings,Type,TypeError,HashMap,LinkedHashMap,List,Map,RegExp,String,Comparator,ClosureArgumentMismatchException,EmptyQueueException,Exception,ExpectException,FormatException,FutureAlreadyCompleteException,FutureNotCompleteException,IllegalAccessException,IllegalArgumentException,IllegalJSRegExpException,IndexOutOfRangeException,IntegerDivisionByZeroException,NoMoreElementsException,NotImplementedException,NullPointerException,ObjectNotClosureException,OutOfMemoryException,StackOverflowException,UnsupportedOperationException,WrongArgumentCountException,';
+
+/**
+ * Order of operation ENUMs.
+ * http://www.dartlang.org/docs/dart-up-and-running/ch02.html#operator_table
+ */
+Blockly.Dart.ORDER_ATOMIC = 0;         // 0 "" ...
+Blockly.Dart.ORDER_UNARY_POSTFIX = 1;  // expr++ expr-- () [] .
+Blockly.Dart.ORDER_UNARY_PREFIX = 2;   // -expr !expr ~expr ++expr --expr
+Blockly.Dart.ORDER_MULTIPLICATIVE = 3; // * / % ~/
+Blockly.Dart.ORDER_ADDITIVE = 4;       // + -
+Blockly.Dart.ORDER_SHIFT = 5;          // << >>
+Blockly.Dart.ORDER_RELATIONAL = 6;     // is is! >= > <= <
+Blockly.Dart.ORDER_EQUALITY = 7;       // == != === !==
+Blockly.Dart.ORDER_BITWISE_AND = 8;    // &
+Blockly.Dart.ORDER_BITWISE_XOR = 9;    // ^
+Blockly.Dart.ORDER_BITWISE_OR = 10;    // |
+Blockly.Dart.ORDER_LOGICAL_AND = 11;   // &&
+Blockly.Dart.ORDER_LOGICAL_OR = 12;    // ||
+Blockly.Dart.ORDER_CONDITIONAL = 13;   // expr ? expr : expr
+Blockly.Dart.ORDER_ASSIGNMENT = 14;    // = *= /= ~/= %= += -= <<= >>= &= ^= |=
+Blockly.Dart.ORDER_NONE = 99;          // (...)
 
 /**
  * Initialise the database of variable names.
@@ -50,7 +74,7 @@ Blockly.Dart.init = function() {
   if (Blockly.Variables) {
     if (!Blockly.Dart.variableDB_) {
       Blockly.Dart.variableDB_ =
-          new Blockly.Names(Blockly.Dart.RESERVED_WORDS_.split(','));
+          new Blockly.Names(Blockly.Dart.RESERVED_WORDS_);
     } else {
       Blockly.Dart.variableDB_.reset();
     }
@@ -78,11 +102,18 @@ Blockly.Dart.finish = function(code) {
   code = 'main() {\n' + code + '}';
 
   // Convert the definitions dictionary into a list.
+  var imports = [];
   var definitions = [];
   for (var name in Blockly.Dart.definitions_) {
-    definitions.push(Blockly.Dart.definitions_[name]);
+    var def = Blockly.Dart.definitions_[name];
+    if (def.match(/^import\s/)) {
+      imports.push(def);
+    } else {
+      definitions.push(def);
+    }
   }
-  return definitions.join('\n') + '\n\n' + code;
+  var allDefs = imports.join('\n') + '\n\n' + definitions.join('\n\n');
+  return allDefs.replace(/\n\n+/g, '\n\n').replace(/\n*$/, '\n\n\n') + code;
 };
 
 /**
@@ -117,6 +148,7 @@ Blockly.Dart.quote_ = function(string) {
  * @param {!Blockly.Block} block The current block.
  * @param {string} code The Dart code created for this block.
  * @return {string} Dart code with comments and subsequent blocks added.
+ * @this {Blockly.CodeGenerator}
  * @private
  */
 Blockly.Dart.scrub_ = function(block, code) {
@@ -136,7 +168,7 @@ Blockly.Dart.scrub_ = function(block, code) {
     // Don't collect comments for nested statements.
     for (var x = 0; x < block.inputList.length; x++) {
       if (block.inputList[x].type == Blockly.INPUT_VALUE) {
-        var childBlock = block.inputList[x].targetBlock();
+        var childBlock = block.inputList[x].connection.targetBlock();
         if (childBlock) {
           var comment = Blockly.Generator.allNestedComments(childBlock);
           if (comment) {

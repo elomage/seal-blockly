@@ -21,6 +21,7 @@
  * @fileoverview Demonstration of Blockly: Solving a maze.
  * @author fraser@google.com (Neil Fraser)
  */
+'use strict';
 
 /**
  * Create a namespace for the maze.
@@ -28,31 +29,42 @@
 var Maze = {};
 
 /**
- * Pixel height and width of each maze square.
- */
-Maze.SIZE = 50;
-
-/**
- * Miliseconds between each animation frame.
+ * Milliseconds between each animation frame.
  */
 Maze.STEP_SPEED = 150;
 
 /**
  * The maze's map is a 2D array of numbers.
- * 0: Empty space.
- * 1: Wall.
+ * 0: Wall.
+ * 1: Open road.
  * 2: Starting square.
  * 3. Finish square.
  */
 Maze.MAP = [
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 1, 0, 1, 3, 1],
-  [1, 0, 0, 1, 0, 0, 0, 1],
-  [1, 0, 1, 1, 0, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 0, 1],
-  [1, 1, 0, 1, 1, 1, 0, 1],
-  [1, 2, 0, 0, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1]];
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 1, 1, 0, 1, 0, 3, 0],
+  [0, 1, 1, 0, 1, 1, 1, 0],
+  [0, 1, 0, 0, 1, 0, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [0, 0, 1, 0, 0, 0, 1, 0],
+  [0, 2, 1, 1, 1, 0, 1, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0]];
+
+/**
+ * Measure maze dimensions and set sizes.
+ * ROWS: Number of tiles down.
+ * COLS: Number of tiles across.
+ * SQUARE_SIZE: Pixel height and width of each maze square (i.e. tile).
+ */
+Maze.ROWS = Maze.MAP.length;
+Maze.COLS = Maze.MAP[0].length;
+Maze.SQUARE_SIZE = 50;
+Maze.PEGMAN_HEIGHT = 52;
+Maze.PEGMAN_WIDTH = 49;
+
+Maze.MAZE_WIDTH = Maze.SQUARE_SIZE * Maze.COLS;
+Maze.MAZE_HEIGHT = Maze.SQUARE_SIZE * Maze.ROWS;
+Maze.PATH_WIDTH = Maze.SQUARE_SIZE / 3;
 
 /**
  * Constants for cardinal directions.
@@ -63,9 +75,193 @@ Maze.SOUTH = 2;
 Maze.WEST = 3;
 
 /**
+ * Starting direction.
+ */
+Maze.startDirection = Maze.EAST;
+
+/**
  * PIDs of animation tasks currently executing.
  */
 Maze.pidList = [];
+
+Maze.dead_end = function(x, y, angle) {
+  var path = document.createElementNS(Blockly.SVG_NS, 'path');
+  path.setAttribute('d',
+      'M' + (x + Maze.PATH_WIDTH) + ',' + (y + Maze.SQUARE_SIZE) +
+      ' v' + -Maze.SQUARE_SIZE / 2 +
+      ' a' + (Maze.PATH_WIDTH / 2) + ',' + (Maze.PATH_WIDTH / 2) + ' 0 0,1 ' +
+          Maze.PATH_WIDTH + ',0' +
+      ' v' + Maze.SQUARE_SIZE / 2);
+  path.setAttribute('fill', 'yellow');
+  path.setAttribute('stroke-width', 1);
+  path.setAttribute('stroke', '#C8BEAE');
+  path.setAttribute('transform', 'rotate(' + angle + ' ' +
+      (x + Maze.SQUARE_SIZE / 2) + ' ' + (y + Maze.SQUARE_SIZE / 2) + ')');
+  return path;
+};
+
+Maze.thru = function(x, y, angle) {
+  var rect = document.createElementNS(Blockly.SVG_NS, 'rect');
+  rect.setAttribute('x', x + Maze.PATH_WIDTH);
+  rect.setAttribute('y', y);
+  rect.setAttribute('width', Maze.PATH_WIDTH);
+  rect.setAttribute('height', Maze.SQUARE_SIZE);
+  rect.setAttribute('fill', 'yellow');
+  rect.setAttribute('stroke-width', 1);
+  rect.setAttribute('stroke', '#C8BEAE');
+  rect.setAttribute('transform', 'rotate(' + angle + ' ' +
+      (x + Maze.SQUARE_SIZE / 2) + ' ' + (y + Maze.SQUARE_SIZE / 2) + ')');
+  return rect;
+};
+
+Maze.elbow = function(x, y, angle) {
+  var rx = Maze.PATH_WIDTH / 2;
+  var path = document.createElementNS(Blockly.SVG_NS, 'path');
+  path.setAttribute('fill', 'yellow');
+  path.setAttribute('stroke-width', 1);
+  path.setAttribute('stroke', '#C8BEAE');
+  path.setAttribute('d',
+      'M' + (x + Maze.PATH_WIDTH) + ',' + (y + Maze.SQUARE_SIZE) +
+      ' v' + -(Maze.SQUARE_SIZE / 2) +
+      ' a' + rx + ',' + rx + ' 0 0,1 ' + rx + ',' + -rx +
+      ' h' + (Maze.SQUARE_SIZE / 2) +
+      ' v' + Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH +
+      ' v' + Maze.PATH_WIDTH);
+  path.setAttribute('transform', 'rotate(' + angle + ' ' +
+      (x + Maze.SQUARE_SIZE / 2) + ' ' + (y + Maze.SQUARE_SIZE / 2) + ')');
+  return path;
+};
+
+Maze.junction = function(x, y, angle) {
+  var path = document.createElementNS(Blockly.SVG_NS, 'path');
+  path.setAttribute('fill', 'yellow');
+  path.setAttribute('stroke-width', 1);
+  path.setAttribute('stroke', '#C8BEAE');
+  path.setAttribute('d', 'M' + (x + Maze.PATH_WIDTH) + ',' + y +
+      ' h' + Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH + ' v' + -Maze.SQUARE_SIZE);
+  path.setAttribute('transform', 'rotate(' + angle + ' ' +
+      (x + Maze.SQUARE_SIZE / 2) + ' ' + (y + Maze.SQUARE_SIZE / 2) + ')');
+  return path;
+};
+
+Maze.cross = function(x, y, angle) {
+  var path = document.createElementNS(Blockly.SVG_NS, 'path');
+  path.setAttribute('fill', 'yellow');
+  path.setAttribute('stroke-width', 1);
+  path.setAttribute('stroke', '#C8BEAE');
+  path.setAttribute('d', 'M' + (x + Maze.PATH_WIDTH) + ',' + y +
+      ' h' + Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH + ' v' + Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH + ' v' + -Maze.PATH_WIDTH +
+      ' h' + -Maze.PATH_WIDTH + ' v' + -Maze.PATH_WIDTH +
+      ' h' + Maze.PATH_WIDTH + ' v' + -Maze.PATH_WIDTH);
+  path.setAttribute('transform', 'rotate(' + angle + ' ' +
+      (x + Maze.SQUARE_SIZE / 2) + ' ' + (y + Maze.SQUARE_SIZE / 2) + ')');
+  return path;
+};
+
+Maze.tile_SHAPES = {
+  '10010': [Maze.dead_end, 0],
+  '10001': [Maze.dead_end, 90],
+  '11000': [Maze.dead_end, 180],
+  '10100': [Maze.dead_end, -90],
+  '11010': [Maze.thru, 0],
+  '10101': [Maze.thru, 90],
+  '10110': [Maze.elbow, 0],
+  '10011': [Maze.elbow, 90],
+  '11001': [Maze.elbow, 180],
+  '11100': [Maze.elbow, -90],
+  '11110': [Maze.junction, 0],
+  '10111': [Maze.junction, 90],
+  '11011': [Maze.junction, 180],
+  '11101': [Maze.junction, -90],
+  '11111': [Maze.cross, -90]
+};
+
+Maze.draw_map = function() {
+  var svg = document.getElementById('svgMaze');
+
+  // Draw the outer square.
+  var square = document.createElementNS(Blockly.SVG_NS, 'rect');
+  square.setAttribute('width', Maze.MAZE_WIDTH);
+  square.setAttribute('height', Maze.MAZE_HEIGHT);
+  square.setAttribute('fill', '#F1EEE7');
+  square.setAttribute('stroke-width', 1);
+  square.setAttribute('stroke', '#C8BEAE');
+  svg.appendChild(square);
+
+  // Draw the tiles making up the maze map.
+  for (var y = 0; y < Maze.ROWS; y++) {
+    for (var x = 0; x < Maze.COLS; x++) {
+      var tile = String(Math.min(1, Maze.MAP[y][x])) +
+          (y == 0 ? 0 : Math.min(1, Maze.MAP[y - 1][x])) +
+          (x == Maze.COLS - 1 ? 0 : Math.min(1, Maze.MAP[y][x + 1])) +
+          (y == Maze.ROWS - 1 ? 0 : Math.min(1, Maze.MAP[y + 1][x])) +
+          (x == 0 ? 0 : Math.min(1, Maze.MAP[y][x - 1]));
+
+      if (Maze.tile_SHAPES[tile]) {
+        var shape = Maze.tile_SHAPES[tile][0];
+        var angle = Maze.tile_SHAPES[tile][1];
+        svg.appendChild(shape(x * Maze.SQUARE_SIZE,
+                              y * Maze.SQUARE_SIZE, angle));
+      }
+    }
+  }
+
+  // Draw the grid lines.
+  for (var k = 1; k < Maze.ROWS; k++) {
+    var h_line = document.createElementNS(Blockly.SVG_NS, 'line');
+    h_line.setAttribute('y1', k * Maze.SQUARE_SIZE);
+    h_line.setAttribute('x2', Maze.MAZE_WIDTH);
+    h_line.setAttribute('y2', k * Maze.SQUARE_SIZE);
+    h_line.setAttribute('stroke', '#C8BEAE');
+    h_line.setAttribute('stroke-width', 2);
+    svg.appendChild(h_line);
+  }
+  for (var k = 1; k < Maze.COLS; k++) {
+    var v_line = document.createElementNS(Blockly.SVG_NS, 'line');
+    v_line.setAttribute('x1', k * Maze.SQUARE_SIZE);
+    v_line.setAttribute('x2', k * Maze.SQUARE_SIZE);
+    v_line.setAttribute('y2', Maze.MAZE_HEIGHT);
+    v_line.setAttribute('stroke', '#C8BEAE');
+    v_line.setAttribute('stroke-width', 2);
+    svg.appendChild(v_line);
+  }
+
+  // Add finish marker.
+  var finishMarker = document.createElementNS(Blockly.SVG_NS, 'image');
+  finishMarker.setAttribute('id', 'finish');
+  finishMarker.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href',
+      'marker.png');
+  finishMarker.setAttribute('height', 34);
+  finishMarker.setAttribute('width', 20);
+  svg.appendChild(finishMarker);
+
+  // Pegman's clipPath element, whose (x, y) is reset by Maze.displayPegman
+  var pegmanClip = document.createElementNS(Blockly.SVG_NS, 'clipPath');
+  pegmanClip.setAttribute('id', 'pegmanClipPath');
+  var clipRect = document.createElementNS(Blockly.SVG_NS, 'rect');
+  clipRect.setAttribute('id', 'clipRect');
+  clipRect.setAttribute('width', Maze.PEGMAN_WIDTH);
+  clipRect.setAttribute('height', Maze.PEGMAN_HEIGHT);
+  pegmanClip.appendChild(clipRect);
+  svg.appendChild(pegmanClip);
+
+  // Add pegman.
+  var pegmanIcon = document.createElementNS(Blockly.SVG_NS, 'image');
+  pegmanIcon.setAttribute('id', 'pegman');
+  pegmanIcon.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href',
+      'pegman.png');
+  pegmanIcon.setAttribute('height', Maze.PEGMAN_HEIGHT);
+  pegmanIcon.setAttribute('width', Maze.PEGMAN_WIDTH * 18); //49 * 18 = 882
+  pegmanIcon.setAttribute('clip-path', 'url(#pegmanClipPath)');
+  svg.appendChild(pegmanIcon);
+};
 
 /**
  * Initialize Blockly and the maze.  Called on page load.
@@ -73,6 +269,7 @@ Maze.pidList = [];
  */
 Maze.init = function(blockly) {
   window.Blockly = blockly;
+  Maze.draw_map();
 
   window.onbeforeunload = function() {
     if (Blockly.mainWorkspace.getAllBlocks().length > 1) {
@@ -88,9 +285,19 @@ Maze.init = function(blockly) {
       '</xml>');
   Blockly.Xml.domToWorkspace(Blockly.mainWorkspace, xml);
 
+  // Record the map's offset.
+  Maze.mapOffsetLeft_ = 0;
+  Maze.mapOffsetTop_ = 0;
+  var element = document.getElementById('svgMaze').parentNode;
+  while (element) {
+    Maze.mapOffsetLeft_ += element.offsetLeft;
+    Maze.mapOffsetTop_ += element.offsetTop;
+    element = element.offsetParent;
+  }
+
   // Locate the start and finish squares.
-  for (var y = 0; y < Maze.MAP.length; y++) {
-    for (var x = 0; x < Maze.MAP[0].length; x++) {
+  for (var y = 0; y < Maze.ROWS; y++) {
+    for (var x = 0; x < Maze.COLS; x++) {
       if (Maze.MAP[y][x] == 2) {
         Maze.start_ = {x: x, y: y};
       } else if (Maze.MAP[y][x] == 3) {
@@ -99,23 +306,6 @@ Maze.init = function(blockly) {
     }
   }
 
-  // Record the map's offset.
-  Maze.mapOffsetLeft_ = 0;
-  Maze.mapOffsetTop_ = 0;
-  var element = document.getElementById('map');
-  while (element) {
-    Maze.mapOffsetLeft_ += element.offsetLeft;
-    Maze.mapOffsetTop_ += element.offsetTop;
-    element = element.offsetParent;
-  }
-
-  // Move the finish icon into position.
-  var finishIcon = document.getElementById('finish');
-  finishIcon.style.top = Maze.mapOffsetTop_ +
-      Maze.SIZE * (Maze.finish_.y + 0.5) - finishIcon.offsetHeight;
-  finishIcon.style.left = Maze.mapOffsetLeft_ +
-      Maze.SIZE * (Maze.finish_.x + 0.5) - finishIcon.offsetWidth / 2;
-
   Maze.reset();
 };
 
@@ -123,10 +313,19 @@ Maze.init = function(blockly) {
  * Reset the maze to the start position and kill any pending animation tasks.
  */
 Maze.reset = function() {
+  // Move Pegman into position.
   Maze.pegmanX = Maze.start_.x;
   Maze.pegmanY = Maze.start_.y;
-  Maze.pegmanD = Maze.EAST;
+  Maze.pegmanD = Maze.startDirection;
   Maze.displayPegman(Maze.pegmanX, Maze.pegmanY, Maze.pegmanD * 4);
+
+  // Move the finish icon into position.
+  var finishIcon = document.getElementById('finish');
+  finishIcon.setAttribute('x', Maze.SQUARE_SIZE * (Maze.finish_.x + 0.5) -
+      finishIcon.getAttribute('width') / 2);
+  finishIcon.setAttribute('y', Maze.SQUARE_SIZE * (Maze.finish_.y + 0.6) -
+      finishIcon.getAttribute('height'));
+
   // Kill all tasks.
   for (var x = 0; x < Maze.pidList.length; x++) {
     window.clearTimeout(Maze.pidList[x]);
@@ -140,6 +339,7 @@ Maze.reset = function() {
 Maze.runButtonClick = function() {
   document.getElementById('runButton').style.display = 'none';
   document.getElementById('resetButton').style.display = 'inline';
+  document.getElementById('randomizeDiv').style.visibility = 'hidden';
   Blockly.mainWorkspace.traceOn(true);
   Maze.execute();
 };
@@ -150,7 +350,56 @@ Maze.runButtonClick = function() {
 Maze.resetButtonClick = function() {
   document.getElementById('runButton').style.display = 'inline';
   document.getElementById('resetButton').style.display = 'none';
+  document.getElementById('randomizeDiv').style.visibility = 'visible';
   Blockly.mainWorkspace.traceOn(false);
+  Maze.reset();
+};
+
+/**
+ * Move the start and finish to random locations.
+ * Set the starting direction randomly.
+ */
+Maze.randomize = function() {
+  // Clear the existing start and finish locations.
+  Maze.MAP[Maze.start_.y][Maze.start_.x] = 1;
+  Maze.MAP[Maze.finish_.y][Maze.finish_.x] = 1;
+
+  /**
+   * Find a random point that's a dead-end on the maze.
+   * Set this point to be either the start or finish.
+   * This function is a closure, but does not reference any outside variables.
+   * @param {number} state 2 -> start point, 3-> finish point.
+   * @return {!Object} X-Y coordinates of new point.
+   */
+  function findCorner(state) {
+    while (true) {
+      var x = Math.floor(Math.random() * (Maze.MAP[0].length - 2)) + 1;
+      var y = Math.floor(Math.random() * (Maze.MAP.length - 2) + 1);
+      if (Maze.MAP[y][x] == 1) {
+        // Count the walls.
+        var walls = 0;
+        if (Maze.MAP[y + 1][x] == 0) {
+          walls++;
+        }
+        if (Maze.MAP[y - 1][x] == 0) {
+          walls++;
+        }
+        if (Maze.MAP[y][x + 1] == 0) {
+          walls++;
+        }
+        if (Maze.MAP[y][x - 1] == 0) {
+          walls++;
+        }
+        if (walls == 3) {
+          Maze.MAP[y][x] = state;
+          return {x: x, y: y};
+        }
+      }
+    }
+  }
+  Maze.start_ = findCorner(2);
+  Maze.finish_ = findCorner(3);
+  Maze.startDirection = Math.floor(Math.random() * 4);
   Maze.reset();
 };
 
@@ -318,11 +567,14 @@ Maze.scheduleFinish = function() {
  */
 Maze.displayPegman = function(x, y, d) {
   var pegmanIcon = document.getElementById('pegman');
-  pegmanIcon.style.top = Maze.mapOffsetTop_ +
-      Maze.SIZE * (y + 0.5) - pegmanIcon.offsetHeight / 2 - 8;
-  pegmanIcon.style.left = Maze.mapOffsetLeft_ +
-      Maze.SIZE * (x + 0.5) - pegmanIcon.offsetHeight / 2 + 2;
-  pegmanIcon.style.backgroundPosition = -d * pegmanIcon.offsetWidth;
+  pegmanIcon.setAttribute('x',
+      x * Maze.SQUARE_SIZE - d * Maze.PEGMAN_WIDTH + 1);
+  pegmanIcon.setAttribute('y',
+      Maze.SQUARE_SIZE * (y + 0.5) - Maze.PEGMAN_HEIGHT / 2 - 8);
+
+  var clipRect = document.getElementById('clipRect');
+  clipRect.setAttribute('x', x * Maze.SQUARE_SIZE + 1);
+  clipRect.setAttribute('y', pegmanIcon.getAttribute('y'));
 };
 
 /**
@@ -356,6 +608,7 @@ Maze.constrainDirection16 = function(d) {
 /**
  * If the user has executed too many actions, we're probably in an infinite
  * loop.  Sadly I wasn't able to solve the Halting Problem for this demo.
+ * @param {?string} id ID of loop block to highlight if timeout is reached.
  * @throws {false} Throws an error to terminate the user's program.
  */
 Maze.checkTimeout = function(id) {
@@ -368,8 +621,6 @@ Maze.checkTimeout = function(id) {
   }
 };
 
-
-var script_path = 'http://localhost:8080';
 /**
  * Show the user's code in raw JavaScript.
  */
@@ -378,25 +629,10 @@ Maze.showCode = function() {
   // Strip out serial numbers.
   code = code.replace(/"[a-z][-:\.\w]+"/g, '');
   alert(code);
-  
-  var send_code = new Request.JSONP({
-    // Raises problems with and('&&'), since it's delimiter, temp fix on Python side
-    url: script_path + '?code='+code,
-	callbackKey: 'jsoncallback',
-    onRequest: function(url){
-        // a script tag is created with a src attribute equal to url
-		//alert(url);
-    },
-    onComplete: function(data){
-       // the request was completed.
-	   //console.log(data);
-	   //alert(data);
-    }
-   });
-   send_code.send();
 };
 
 // API
+// Human-readable aliases.
 
 Maze.moveForward = function(id) {
   Maze.move(0, id);
@@ -430,7 +666,7 @@ Maze.isWallLeft = function() {
   return Maze.isWall(3);
 };
 
-//
+// Core functions.
 
 /**
  * Move pegman forward or backward.
@@ -504,45 +740,5 @@ Maze.isWall = function(direction) {
   } else if (effectiveDirection == Maze.WEST) {
     square = Maze.MAP[Maze.pegmanY][Maze.pegmanX - 1];
   }
-  return square == 1;
+  return square == 0;
 };
-
-var successful = 1;
-
-var send_sync = new Request.JSONP({
-// Raises problems with and('&&'), since it's delimiter, temp fix on Python side
-url: script_path + '?sync=True',
-callbackKey: 'jsoncallback',
-onRequest: function(url){
-    // a script tag is created with a src attribute equal to url
-	//alert(url);
-},
-onComplete: function(data){
-   // the request was completed.
-   //console.log(data);
-   //alert(data);
-   successful = 1;
-},
-onFailure: function(data){
-   // the request was completed.
-   //console.log(data);
-   alert("Failed");
-},
-onError: function(text, error){
-alert(text+ error);
-}
-});
-function doSync(){
-    // This check is needed becaue of alert, it stops background processes from 
-    // firing, so sync can fail to bo sent in time and python terminates...
-    if (successful == 0){
-        alert("Connection lost\n Please restart application.");
-        return 0;
-    }
-    successful = 0;
-    sync = setTimeout("doSync()",5000);
-    send_sync.send();
-}
-
-sync = setTimeout("doSync()",5000);
-

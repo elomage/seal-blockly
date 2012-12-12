@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="language/en/|generators/dart/|tests/|demos/|demos/maze/|generators/|seal/|demos/code/|generators/python/|generators/javascript/" kind="src" path="blockly"/>
+	<classpathentry excluding="maze/|code/" kind="src" path="blockly/demos"/>
+	<classpathentry kind="src" path="blockly/demos/code"/>
+	<classpathentry kind="src" path="blockly/demos/maze"/>
+	<classpathentry excluding="dart/|python/|javascript/" kind="src" path="blockly/generators"/>
+	<classpathentry kind="src" path="blockly/generators/dart"/>
+	<classpathentry kind="src" path="blockly/generators/javascript"/>
+	<classpathentry kind="src" path="blockly/generators/python"/>
+	<classpathentry kind="src" path="blockly/language/en"/>
+	<classpathentry kind="src" path="blockly/seal"/>
+	<classpathentry kind="src" path="blockly/tests"/>
+	<classpathentry kind="con" path="org.eclipse.wst.jsdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path=""/>
+</classpath>
