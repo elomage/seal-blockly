@@ -21,13 +21,10 @@
  * @fileoverview Demonstration of Blockly: Solving a maze.
  * @author fraser@google.com (Neil Fraser)
  */
+'use strict';
 
 // Extensions to Blockly's language and JavaScript generator.
 
-// Define Language and JavaScript, in case this file is loaded too early.
-if (!Blockly.Language) {
-  Blockly.Language = {};
-}
 Blockly.JavaScript = Blockly.Generator.get('JavaScript');
 
 Blockly.Language.maze_move = {
@@ -36,9 +33,9 @@ Blockly.Language.maze_move = {
   helpUrl: 'http://code.google.com/p/blockly/wiki/Move',
   init: function() {
     this.setColour(290);
-    this.appendTitle('move');
-    var dropdown = new Blockly.FieldDropdown(this.DIRECTIONS);
-    this.appendTitle(dropdown, 'DIR');
+    this.appendDummyInput()
+        .appendTitle('move')
+        .appendTitle(new Blockly.FieldDropdown(this.DIRECTIONS), 'DIR');
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setTooltip('Moves Pegman forward or backward one space.');
@@ -59,9 +56,9 @@ Blockly.Language.maze_turnLeft = {
   helpUrl: 'http://code.google.com/p/blockly/wiki/Turn',
   init: function() {
     this.setColour(290);
-    this.appendTitle('turn');
-    var dropdown = new Blockly.FieldDropdown(this.DIRECTIONS);
-    this.appendTitle(dropdown, 'DIR');
+    this.appendDummyInput()
+        .appendTitle('turn')
+        .appendTitle(new Blockly.FieldDropdown(this.DIRECTIONS), 'DIR');
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setTooltip('Turns Pegman left or right by 90 degrees.');
@@ -77,11 +74,11 @@ Blockly.Language.maze_turnRight = {
   helpUrl: null,
   init: function() {
     this.setColour(290);
-    this.appendTitle('turn');
-    var dropdown =
-        new Blockly.FieldDropdown(Blockly.Language.maze_turnLeft.DIRECTIONS);
-    this.appendTitle(dropdown, 'DIR');
-    this.setTitleText(Blockly.Language.maze_turnLeft.DIRECTIONS[1][0], 'DIR');
+    this.appendDummyInput()
+        .appendTitle('turn')
+        .appendTitle(new Blockly.FieldDropdown(
+                     Blockly.Language.maze_turnLeft.DIRECTIONS), 'DIR');
+    this.setTitleValue(Blockly.Language.maze_turnLeft.DIRECTIONS[1][1], 'DIR');
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setTooltip('Turns Pegman left or right by 90 degrees.');
@@ -114,11 +111,11 @@ Blockly.Language.maze_isWall = {
   init: function() {
     this.setColour(120);
     this.setOutput(true, Boolean);
-    this.appendTitle('wall');
-    var dropdown = new Blockly.FieldDropdown(this.DIRECTIONS);
-    this.appendTitle(dropdown, 'DIR');
-    this.setTooltip('Returns true if there is a wall in ' +
-                    'the specified direction.');
+    this.appendDummyInput()
+        .appendTitle('wall')
+        .appendTitle(new Blockly.FieldDropdown(this.DIRECTIONS), 'DIR');
+    this.setTooltip('Returns true if there is a wall\n' +
+                    'in the specified direction.');
   }
 };
 
@@ -130,7 +127,8 @@ Blockly.Language.maze_isWall.DIRECTIONS =
 
 Blockly.JavaScript.maze_isWall = function() {
   // Generate JavaScript for checking if there is a wall.
-  return 'Maze.' + this.getTitleValue('DIR') + '()';
+  var code = 'Maze.' + this.getTitleValue('DIR') + '()';
+  return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
 };
 
 Blockly.Language.controls_forever = {
@@ -139,10 +137,11 @@ Blockly.Language.controls_forever = {
   helpUrl: 'http://code.google.com/p/blockly/wiki/Repeat',
   init: function() {
     this.setColour(120);
-    this.appendTitle('repeat forever');
-    this.appendInput('do', Blockly.NEXT_STATEMENT, 'DO');
+    this.appendDummyInput()
+        .appendTitle('repeat until finished');
+    this.appendStatementInput('DO').appendTitle('do');
     this.setPreviousStatement(true);
-    this.setTooltip('Do the enclosed statements forever.');
+    this.setTooltip('Repeat the enclosed steps until finish point is reached.');
   }
 };
 
@@ -155,7 +154,8 @@ Blockly.JavaScript.controls_forever = function() {
 
 Blockly.JavaScript.controls_whileUntil = function() {
   // Do while/until loop.
-  var argument0 = Blockly.JavaScript.valueToCode(this, 'BOOL', true) || 'false';
+  var argument0 = Blockly.JavaScript.valueToCode(this, 'BOOL',
+      Blockly.JavaScript.ORDER_NONE) || 'false';
   var branch0 = Blockly.JavaScript.statementToCode(this, 'DO');
   if (this.getTitleValue('MODE') == 'UNTIL') {
     if (!argument0.match(/^\w+$/)) {
@@ -166,3 +166,40 @@ Blockly.JavaScript.controls_whileUntil = function() {
   return 'while (' + argument0 + ') {\n' + branch0 +
       '  Maze.checkTimeout("' + this.id + '");\n}\n';
 };
+
+function init() {
+  // Whitelist of blocks to keep.
+  var newLanguage = {};
+  var keepers = ['maze_move', 'maze_turnLeft', 'maze_turnRight',
+      'maze_isWall', 'controls_if', 'controls_if_if', 'controls_if_elseif',
+      'controls_if_else', 'controls_forever', 'controls_whileUntil',
+      'logic_operation', 'logic_negate'];
+  for (var x = 0; x < keepers.length; x++) {
+    newLanguage[keepers[x]] = Blockly.Language[keepers[x]];
+  }
+  // Fold control category into logic category.
+  for (var name in newLanguage) {
+    if (newLanguage[name].category == 'Control') {
+      newLanguage[name].category = 'Logic';
+    }
+  }
+  Blockly.Language = newLanguage;
+
+  Blockly.inject(document.body, {path: '../../'});
+
+  if (window.parent.Maze) {
+    // Let the top-level application know that Blockly is ready.
+    window.parent.Maze.init(Blockly);
+  } else {
+    // Attempt to diagnose the problem.
+    var msg = 'Error: Unable to communicate between frames.\n\n';
+    if (window.parent == window) {
+      msg += 'Try loading index.html instead of frame.html';
+    } else if (window.location.protocol == 'file:') {
+      msg += 'This may be due to a security restriction preventing\n' +
+          'access when using the file:// protocol.\n' +
+          'http://code.google.com/p/chromium/issues/detail?id=47416';
+    }
+    alert(msg);
+  }
+}

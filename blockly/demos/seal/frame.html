@@ -1,0 +1,129 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blockly Demo: Code</title>
+  
+  <script type="text/javascript" src="mootools-core-1.4.5-full-nocompat.js"></script>
+  <script type="text/javascript" src="mootools-more-1.4.0.1.js"></script>
+  <script type="text/javascript" src="../blockly_compressed.js"></script>
+  
+  <script type="text/javascript" src="../../generators/seal.js"></script>
+  
+  <script type="text/javascript" src="../../language/en/_messages.js"></script>
+  
+  <script type="text/javascript" src="../../language/seal/statements.js"></script>
+  <script type="text/javascript" src="../../language/seal/parameters.js"></script>
+  <script type="text/javascript" src="../../language/seal/control.js"></script>
+  <script type="text/javascript" src="../../language/common/logic.js"></script>
+  <script type="text/javascript" src="../../language/seal/values.js"></script>
+  
+  <script type="text/javascript" src="../../generators/seal/statements.js"></script>
+  <script type="text/javascript" src="../../generators/seal/parameters.js"></script>
+  <script type="text/javascript" src="../../generators/seal/control.js"></script>
+  <script type="text/javascript" src="../../generators/seal/logic.js"></script>
+  <script type="text/javascript" src="../../generators/seal/values.js"></script>
+  <style>
+    html, body {
+      background-color: #fff;
+      margin: 0;
+      padding:0;
+      overflow: hidden;
+    }
+    .blocklySvg {
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+  <script>
+    function init() {
+      Blockly.inject(document.body, {path: '../../'});
+
+      if (window.parent.init) {
+        // Let the top-level application know that Blockly is ready.
+        window.parent.init(Blockly);
+      } else {
+        // Attempt to diagnose the problem.
+        var msg = 'Error: Unable to communicate between frames.\n\n';
+        if (window.parent == window) {
+          msg += 'Try loading index.html instead of frame.html';
+        } else if (window.location.protocol == 'file:') {
+          msg += 'This may be due to a security restriction preventing\n' +
+              'access when using the file:// protocol.\n' +
+              'http://code.google.com/p/chromium/issues/detail?id=47416';
+        }
+        alert(msg);
+      }
+    }
+    // Communication magic!!
+
+var script_path = 'http://localhost:8090';
+
+var successful = 1;
+
+var send_sync = new Request.JSONP({
+// Raises problems with and('&&'), since it's delimiter, temp fix on Python side
+url: script_path + '?sync=True',
+callbackKey: 'jsoncallback',
+onRequest: function(url){
+    // a script tag is created with a src attribute equal to url
+	//alert(url);
+},
+onComplete: function(data){
+   // the request was completed.
+   //console.log(data);
+   //alert(data);
+   successful = 1;
+},
+onFailure: function(data){
+   // the request was completed.
+   //console.log(data);
+   alert("Failed");
+},
+onError: function(text, error){
+alert(text+ error);
+}
+});
+function doSync(){
+    // This check is needed becaue of alert, it stops background processes from 
+    // firing, so sync can fail to bo sent in time and python terminates...
+    if (successful == 0){
+        alert("Connection lost\n Please restart application.");
+        return 0;
+    }
+    successful = 0;
+    sync = setTimeout("doSync()",5000);
+    send_sync.send();
+}
+
+sync = setTimeout("doSync()",5000);
+
+
+function uploadSealCode() {
+  var code = Blockly.Generator.workspaceToCode('Seal');
+
+  // Strip out serial numbers.
+  code = code.replace(/"[a-z][-:\.\w]+"/g, '');
+// alert(code);
+  
+  var send_code = new Request.JSONP({
+    // Raises problems with and('&&'), since it's delimiter, temp fix on Python side
+    url: script_path + '?code='+code,
+	callbackKey: 'jsoncallback',
+    onRequest: function(url){
+        // a script tag is created with a src attribute equal to url
+		//alert(url);
+    },
+    onComplete: function(data){
+       // the request was completed.
+	   //console.log(data);
+	   //alert(data);
+    }
+   });
+   send_code.send();
+}
+
+  </script>
+</head>
+<body onload="init()">
+</body>
+</html>
