@@ -3,25 +3,26 @@
   <meta charset="utf-8">
   <title>Blockly Demo: Code</title>
   
-  <script type="text/javascript" src="mootools-core-1.4.5-full-nocompat.js"></script>
-  <script type="text/javascript" src="mootools-more-1.4.0.1.js"></script>
-  <script type="text/javascript" src="../blockly_compressed.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/demos/seal/mootools-core-1.4.5-full-nocompat.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/demos/seal/mootools-more-1.4.0.1.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/demos/blockly_compressed.js"></script>
   
-  <script type="text/javascript" src="../../generators/seal.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal.js"></script>
   
-  <script type="text/javascript" src="../../language/en/_messages.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/en/_messages.js"></script>
   
-  <script type="text/javascript" src="../../language/seal/statements.js"></script>
-  <script type="text/javascript" src="../../language/seal/parameters.js"></script>
-  <script type="text/javascript" src="../../language/seal/control.js"></script>
-  <script type="text/javascript" src="../../language/common/logic.js"></script>
-  <script type="text/javascript" src="../../language/seal/values.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/seal/statements.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/seal/parameters.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/seal/control.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/common/logic.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/language/seal/values.js"></script>
   
-  <script type="text/javascript" src="../../generators/seal/statements.js"></script>
-  <script type="text/javascript" src="../../generators/seal/parameters.js"></script>
-  <script type="text/javascript" src="../../generators/seal/control.js"></script>
-  <script type="text/javascript" src="../../generators/seal/logic.js"></script>
-  <script type="text/javascript" src="../../generators/seal/values.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal/statements.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal/parameters.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal/control.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal/logic.js"></script>
+  <script type="text/javascript" src="../../../../seal-blockly/blockly/generators/seal/values.js"></script>
+
   <style>
     html, body {
       background-color: #fff;
@@ -36,7 +37,7 @@
   </style>
   <script>
     function init() {
-      Blockly.inject(document.body, {path: '../../'});
+      Blockly.inject(document.body, {path: '../../../../seal-blockly/blockly/'});
 
       if (window.parent.init) {
         // Let the top-level application know that Blockly is ready.
